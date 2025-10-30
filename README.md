@@ -1,73 +1,124 @@
-# Welcome to your Lovable project
+# IdentityChain
 
-## Project info
+A blockchain-based identity verification platform with secure KYC submission using Fully Homomorphic Encryption (FHE).
 
-**URL**: https://lovable.dev/projects/27ec9975-8dc5-4ead-954b-646baf6600f8
+## Features
 
-## How can I edit this code?
+- **Secure KYC Submission**: Submit personal information with FHE encryption
+- **On-Chain Verification**: Age, nationality, and document type stored securely on blockchain
+- **Privacy-Preserving**: Encrypted data remains confidential while being verifiable
+- **Web3 Integration**: Connect with MetaMask, OKX Wallet, or Coinbase Wallet
+- **Admin Dashboard**: Verify and manage KYC submissions
 
-There are several ways of editing your application.
+## Technology Stack
 
-**Use Lovable**
+- **Frontend**: React + TypeScript + Vite
+- **Smart Contracts**: Solidity 0.8.24 with Zama fhEVM
+- **Encryption**: Fully Homomorphic Encryption (FHE) via Zama SDK
+- **Blockchain**: Ethereum Sepolia Testnet
+- **UI Framework**: Tailwind CSS + shadcn/ui
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/27ec9975-8dc5-4ead-954b-646baf6600f8) and start prompting.
+## Getting Started
 
-Changes made via Lovable will be committed automatically to this repo.
+### Prerequisites
 
-**Use your preferred IDE**
+- Node.js 20.x or higher
+- MetaMask or compatible Web3 wallet
+- Sepolia testnet ETH for deployment
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Installation
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+```bash
+# Install dependencies
+npm install
 
-Follow these steps:
+# Copy environment template
+cp .env.example .env
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+# Add your private key to .env
+# PRIVATE_KEY=your_private_key_here
 ```
 
-**Edit a file directly in GitHub**
+### Smart Contract Deployment
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+# Compile contracts
+npm run compile
 
-**Use GitHub Codespaces**
+# Deploy to Sepolia testnet
+npm run deploy
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+The deployment script will automatically:
+- Deploy the PrivacyKYC contract
+- Update `.env` with the contract address
+- Update `KYCForm.tsx` with the contract address
+- Save deployment info to `deployments/` folder
 
-## What technologies are used for this project?
+### Running the Frontend
 
-This project is built with:
+```bash
+# Start development server
+npm run dev
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+# Build for production
+npm run build
+```
 
-## How can I deploy this project?
+## Project Structure
 
-Simply open [Lovable](https://lovable.dev/projects/27ec9975-8dc5-4ead-954b-646baf6600f8) and click on Share -> Publish.
+```
+IdentityChain/
+├── contracts/
+│   └── PrivacyKYC.sol        # FHE-enabled KYC contract
+├── scripts/
+│   └── deploy.cjs            # Deployment script
+├── src/
+│   ├── components/
+│   │   └── KYCForm.tsx       # Main KYC submission form
+│   ├── lib/
+│   │   └── fhe.ts            # FHE encryption utilities
+│   └── config/
+│       └── wagmi.ts          # Web3 configuration
+├── hardhat.config.cjs        # Hardhat configuration
+└── .env                      # Environment variables
+```
 
-## Can I connect a custom domain to my Lovable project?
+## How It Works
 
-Yes, you can!
+1. **User Submission**: Users fill out the KYC form with personal information
+2. **Client-Side Encryption**: Age, nationality, and document type are encrypted using FHE
+3. **On-Chain Storage**: Encrypted data is submitted to the smart contract
+4. **Admin Verification**: Administrators can verify KYC status without seeing raw data
+5. **Access Control**: Only authorized parties can decrypt specific data fields
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Smart Contract Functions
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- `submitKYC()`: Submit encrypted KYC information
+- `verifyKYC()`: Admin-only function to verify KYC status
+- `isAgeAbove()`: Check if user's age meets minimum requirement (without decryption)
+- `getKYCData()`: Retrieve encrypted KYC data
+- `hasKYC()`: Check if user has submitted KYC
+
+## Security Features
+
+- **FHE Encryption**: Data encrypted before leaving the client
+- **Access Control**: Smart contract enforces who can access data
+- **Admin Management**: Only contract owner can verify KYC
+- **Immutable Records**: Blockchain provides tamper-proof storage
+
+## Environment Variables
+
+```env
+SEPOLIA_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
+PRIVATE_KEY=your_private_key_here
+VITE_KYC_CONTRACT_ADDRESS=deployed_contract_address
+```
+
+## License
+
+MIT License
+
+## Support
+
+For issues and questions, please open an issue on GitHub.
