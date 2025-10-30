@@ -9,7 +9,7 @@ const Header = () => {
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow">
             <Shield className="h-5 w-5 text-white" />
           </div>
-          <span className="text-xl font-bold text-foreground">PayrollChain</span>
+          <span className="text-xl font-bold text-foreground">IdentityChain</span>
         </div>
         
         <nav className="hidden items-center gap-8 md:flex">

@@ -10,7 +10,7 @@ const Footer = () => {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow">
                 <Shield className="h-4 w-4 text-white" />
               </div>
-              <span className="text-lg font-bold text-card-foreground">PayrollChain</span>
+              <span className="text-lg font-bold text-card-foreground">IdentityChain</span>
             </div>
             <p className="max-w-md text-sm text-muted-foreground">
               Secure, private KYC verification powered by Fully Homomorphic Encryption. Your identity, your control.
@@ -61,7 +61,7 @@ const Footer = () => {
         </div>
         
         <div className="mt-8 border-t border-border pt-8 text-center text-sm text-muted-foreground">
-          <p>© 2025 PayrollChain. All rights reserved. Built with FHE technology.</p>
+          <p>© 2025 IdentityChain. All rights reserved. Built with FHE technology.</p>
         </div>
       </div>
     </footer>

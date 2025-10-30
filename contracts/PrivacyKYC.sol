@@ -98,7 +98,7 @@ contract PrivacyKYC is GatewayCaller {
     /// @param user Address to check
     /// @param minAge Minimum age requirement
     /// @return Encrypted boolean result
-    function isAgeAbove(address user, uint32 minAge) external view returns (ebool) {
+    function isAgeAbove(address user, uint32 minAge) external returns (ebool) {
         require(hasSubmitted[user], "No KYC submission");
         return TFHE.ge(kycRecords[user].age, minAge);
     }

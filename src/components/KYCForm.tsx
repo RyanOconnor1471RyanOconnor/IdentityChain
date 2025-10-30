@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,11 +6,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, CheckCircle2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useAccount } from "wagmi";
-import { encryptKYC } from "@/lib/fhe";
+import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { encryptKYC, initializeFHE } from "@/lib/fhe";
+import { sepolia } from "wagmi/chains";
+import PrivacyKYCABI from "@/contracts/PrivacyKYC.json";
 
 // Contract address - update this after deployment
-const KYC_CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+const KYC_CONTRACT_ADDRESS = "0x6405353473125DeAf0121CaE302B933B6784451E";
 
 // Nationality codes mapping
 const NATIONALITIES: Record<string, number> = {
@@ -37,8 +39,15 @@ const DOC_TYPES: Record<string, number> = {
 const KYCForm = () => {
   const { toast } = useToast();
   const { address, isConnected } = useAccount();
+  const chainId = useChainId();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
+  const [fheInitialized, setFheInitialized] = useState(false);
+
+  const { writeContract, data: hash, isPending, error: writeError } = useWriteContract();
+  const { isLoading: isConfirming, isSuccess: isConfirmed } = useWaitForTransactionReceipt({
+    hash,
+  });
 
   const [formData, setFormData] = useState({
     fullName: "",
@@ -47,6 +56,52 @@ const KYCForm = () => {
     nationality: "",
     documentType: "",
   });
+
+  // Initialize FHE when wallet is connected
+  useEffect(() => {
+    if (isConnected && !fheInitialized && chainId === sepolia.id) {
+      console.log("[KYC] Initializing FHE...");
+      initializeFHE()
+        .then(() => {
+          console.log("[KYC] ✅ FHE initialized");
+          setFheInitialized(true);
+        })
+        .catch((error) => {
+          console.error("[KYC] ❌ FHE initialization failed:", error);
+          toast({
+            title: "FHE Initialization Failed",
+            description: error.message || "Failed to initialize FHE SDK",
+            variant: "destructive",
+          });
+        });
+    }
+  }, [isConnected, fheInitialized, chainId, toast]);
+
+  // Watch for transaction confirmation
+  useEffect(() => {
+    if (isConfirmed) {
+      console.log("[KYC] ✅ Transaction confirmed:", hash);
+      setIsSubmitting(false);
+      setIsVerified(true);
+      toast({
+        title: "KYC Submitted Successfully",
+        description: "Your encrypted information has been submitted to the blockchain.",
+      });
+    }
+  }, [isConfirmed, hash, toast]);
+
+  // Watch for write errors
+  useEffect(() => {
+    if (writeError) {
+      console.error("[KYC] ❌ Transaction error:", writeError);
+      setIsSubmitting(false);
+      toast({
+        title: "Transaction Failed",
+        description: writeError.message || "Failed to submit transaction",
+        variant: "destructive",
+      });
+    }
+  }, [writeError, toast]);
 
   const calculateAge = (birthDate: string): number => {
     const today = new Date();
@@ -71,6 +126,16 @@ const KYCForm = () => {
       return;
     }
 
+    // Check if on Sepolia network
+    if (chainId !== sepolia.id) {
+      toast({
+        title: "Wrong Network",
+        description: `Please switch to Sepolia testnet (Chain ID: ${sepolia.id})`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (KYC_CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
       toast({
         title: "Contract Not Deployed",
@@ -80,8 +145,19 @@ const KYCForm = () => {
       return;
     }
 
+    // Check if FHE is initialized
+    if (!fheInitialized) {
+      toast({
+        title: "FHE Not Ready",
+        description: "Please wait for FHE SDK to initialize...",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
+      console.log("[KYC] Starting KYC submission process...");
 
       // Calculate age from date of birth
       const age = calculateAge(formData.dateOfBirth);
@@ -100,13 +176,19 @@ const KYCForm = () => {
       const nationalityCode = NATIONALITIES[formData.nationality] || NATIONALITIES["Other"];
       const docTypeCode = DOC_TYPES[formData.documentType] || 1;
 
+      console.log("[KYC] Starting encryption...", {
+        age,
+        nationality: nationalityCode,
+        documentType: docTypeCode,
+      });
+
       toast({
         title: "Encrypting Data",
         description: "Encrypting your KYC information using FHE...",
       });
 
-      // Encrypt KYC data using FHE
-      const encrypted = await encryptKYC(
+      // Add timeout to encryption
+      const encryptionPromise = encryptKYC(
         age,
         nationalityCode,
         docTypeCode,
@@ -114,7 +196,13 @@ const KYCForm = () => {
         address
       );
 
-      console.log("Encrypted KYC data:", {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Encryption timeout after 60 seconds")), 60000)
+      );
+
+      const encrypted = await Promise.race([encryptionPromise, timeoutPromise]) as Awaited<ReturnType<typeof encryptKYC>>;
+
+      console.log("[KYC] Encrypted KYC data:", {
         age,
         nationality: nationalityCode,
         documentType: docTypeCode,
@@ -123,20 +211,25 @@ const KYCForm = () => {
 
       toast({
         title: "Encryption Complete",
-        description: "Your data has been encrypted. Ready to submit to blockchain.",
+        description: "Submitting to blockchain...",
       });
 
-      // TODO: Submit to contract
-      // const tx = await submitKYC(encrypted);
-      // await tx.wait();
+      console.log("[KYC] Calling submitKYC contract function...");
 
-      setIsSubmitting(false);
-      setIsVerified(true);
-
-      toast({
-        title: "KYC Submitted Successfully",
-        description: "Your encrypted information has been submitted to the blockchain.",
+      // Submit to contract
+      writeContract({
+        address: KYC_CONTRACT_ADDRESS as `0x${string}`,
+        abi: PrivacyKYCABI,
+        functionName: "submitKYC",
+        args: [
+          encrypted.ageHandle,
+          encrypted.nationalityHandle,
+          encrypted.docTypeHandle,
+          encrypted.proof,
+        ],
       });
+
+      console.log("[KYC] Transaction sent, waiting for confirmation...");
 
     } catch (error: any) {
       console.error("KYC submission error:", error);
@@ -270,11 +363,26 @@ const KYCForm = () => {
             </div>
           </div>
 
-          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || !isConnected}>
-            {isSubmitting ? (
+          <Button type="submit" className="w-full" size="lg" disabled={isSubmitting || isPending || isConfirming || !isConnected || !fheInitialized}>
+            {isConfirming ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Confirming Transaction...
+              </>
+            ) : isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Awaiting Wallet Approval...
+              </>
+            ) : isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Encrypting & Submitting...
+              </>
+            ) : !fheInitialized && isConnected ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Initializing FHE...
               </>
             ) : (
               "Submit KYC"
@@ -284,6 +392,11 @@ const KYCForm = () => {
           {!isConnected && (
             <p className="text-center text-sm text-muted-foreground">
               Please connect your wallet to submit KYC information
+            </p>
+          )}
+          {isConnected && !fheInitialized && (
+            <p className="text-center text-sm text-muted-foreground">
+              Initializing FHE encryption...
             </p>
           )}
         </form>

@@ -15,7 +15,7 @@ declare global {
 let fheInstance: any = null;
 let sdkPromise: Promise<any> | null = null;
 
-const SDK_URL = 'https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.js';
+const SDK_URL = 'https://cdn.zama.ai/relayer-sdk-js/0.2.0/relayer-sdk-js.umd.cjs';
 
 /**
  * Dynamically load Zama FHE SDK from CDN
@@ -26,6 +26,7 @@ const loadSdk = async (): Promise<any> => {
   }
 
   if (window.relayerSDK) {
+    console.log('✅ SDK already loaded');
     return window.relayerSDK;
   }
 
@@ -33,22 +34,50 @@ const loadSdk = async (): Promise<any> => {
     sdkPromise = new Promise((resolve, reject) => {
       const existing = document.querySelector(`script[src="${SDK_URL}"]`) as HTMLScriptElement | null;
       if (existing) {
-        existing.addEventListener('load', () => resolve(window.relayerSDK));
-        existing.addEventListener('error', () => reject(new Error('Failed to load FHE SDK')));
+        console.log('⏳ SDK script tag exists, waiting...');
+        // Wait a bit for SDK to initialize
+        const checkInterval = setInterval(() => {
+          if (window.relayerSDK) {
+            clearInterval(checkInterval);
+            resolve(window.relayerSDK);
+          }
+        }, 100);
+
+        setTimeout(() => {
+          clearInterval(checkInterval);
+          if (window.relayerSDK) {
+            resolve(window.relayerSDK);
+          } else {
+            reject(new Error('SDK script exists but window.relayerSDK not initialized'));
+          }
+        }, 5000);
         return;
       }
 
+      console.log('📦 Loading SDK from CDN...');
       const script = document.createElement('script');
       script.src = SDK_URL;
       script.async = true;
+
       script.onload = () => {
-        if (window.relayerSDK) {
-          resolve(window.relayerSDK);
-        } else {
-          reject(new Error('relayerSDK unavailable after load'));
-        }
+        console.log('📦 Script loaded, waiting for SDK initialization...');
+        // Give SDK time to initialize
+        setTimeout(() => {
+          if (window.relayerSDK) {
+            console.log('✅ SDK initialized');
+            resolve(window.relayerSDK);
+          } else {
+            console.error('❌ window.relayerSDK still undefined after load');
+            reject(new Error('relayerSDK unavailable after load'));
+          }
+        }, 500);
       };
-      script.onerror = () => reject(new Error('Failed to load FHE SDK'));
+
+      script.onerror = () => {
+        console.error('❌ Failed to load SDK script');
+        reject(new Error('Failed to load FHE SDK'));
+      };
+
       document.body.appendChild(script);
     });
   }
@@ -78,7 +107,10 @@ export async function initializeFHE(provider?: any): Promise<any> {
     throw new Error('Ethereum provider not found. Please connect your wallet first.');
   }
 
-  console.log('🔌 Using Ethereum provider');
+  console.log('🔌 Using Ethereum provider:', {
+    isOKX: !!(window as any).okxwallet,
+    isMetaMask: !!(window.ethereum as any)?.isMetaMask,
+  });
 
   const sdk = await loadSdk();
   if (!sdk) {
@@ -96,52 +128,6 @@ export async function initializeFHE(provider?: any): Promise<any> {
   console.log('✅ FHE instance initialized for Sepolia');
 
   return fheInstance;
-}
-
-/**
- * Encrypt uint32 value (for age)
- */
-export async function encryptAge(
-  age: number,
-  contractAddress: string,
-  userAddress: string,
-  provider?: any
-): Promise<{ handle: string; proof: string }> {
-  const fhe = await initializeFHE(provider);
-  const checksumAddress = getAddress(contractAddress);
-
-  const input = fhe.createEncryptedInput(checksumAddress, userAddress);
-  input.add32(age);
-
-  const { handles, inputProof } = await input.encrypt();
-
-  return {
-    handle: hexlify(handles[0]),
-    proof: hexlify(inputProof),
-  };
-}
-
-/**
- * Encrypt uint8 value (for nationality code, document type)
- */
-export async function encryptUint8(
-  value: number,
-  contractAddress: string,
-  userAddress: string,
-  provider?: any
-): Promise<{ handle: string; proof: string }> {
-  const fhe = await initializeFHE(provider);
-  const checksumAddress = getAddress(contractAddress);
-
-  const input = fhe.createEncryptedInput(checksumAddress, userAddress);
-  input.add8(value);
-
-  const { handles, inputProof } = await input.encrypt();
-
-  return {
-    handle: hexlify(handles[0]),
-    proof: hexlify(inputProof),
-  };
 }
 
 /**
@@ -166,16 +152,22 @@ export async function encryptKYC(
   docTypeHandle: string;
   proof: string;
 }> {
+  console.log('[FHE] Encrypting KYC data:', { age, nationality, documentType });
+
   const fhe = await initializeFHE(provider);
   const checksumAddress = getAddress(contractAddress);
 
+  console.log('[FHE] Creating encrypted input...');
   const input = fhe.createEncryptedInput(checksumAddress, userAddress);
 
   input.add32(age);
   input.add8(nationality);
   input.add8(documentType);
 
+  console.log('[FHE] Encrypting...');
   const { handles, inputProof } = await input.encrypt();
+
+  console.log('[FHE] ✅ Encryption complete');
 
   return {
     ageHandle: hexlify(handles[0]),

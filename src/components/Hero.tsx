@@ -18,7 +18,7 @@ const Hero = () => {
           </h1>
           
           <p className="mb-8 text-lg text-muted-foreground md:text-xl">
-            PayrollChain uses Fully Homomorphic Encryption (FHE) to keep your personal data private while enabling compliant on-chain verification. Your identity, your control.
+            IdentityChain uses Fully Homomorphic Encryption (FHE) to keep your personal data private while enabling compliant on-chain verification. Your identity, your control.
           </p>
           
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
