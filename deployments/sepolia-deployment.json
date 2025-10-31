@@ -1,7 +1,7 @@
 {
   "network": "sepolia",
-  "contractAddress": "0x6405353473125DeAf0121CaE302B933B6784451E",
+  "contractAddress": "0x53834c87D409CAb6E0668e297d8bfF67C1d259DF",
   "adminAddress": "0xB3013ea08c6C4f377f0dfaeAd6741B29593082f5",
-  "deploymentTime": "2025-10-30T06:47:24.815Z",
-  "blockNumber": 9521124
+  "deploymentTime": "2025-10-31T12:27:14.193Z",
+  "blockNumber": 9530014
 }

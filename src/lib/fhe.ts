@@ -170,9 +170,16 @@ export async function encryptKYC(
   console.log('[FHE] ✅ Encryption complete');
 
   return {
-    ageHandle: hexlify(handles[0]),
-    nationalityHandle: hexlify(handles[1]),
-    docTypeHandle: hexlify(handles[2]),
+    ageHandle: expectBytes32(handles[0]),
+    nationalityHandle: expectBytes32(handles[1]),
+    docTypeHandle: expectBytes32(handles[2]),
     proof: hexlify(inputProof),
   };
 }
+
+export const expectBytes32 = (bytes: Uint8Array): `0x${string}` => {
+  if (bytes.length !== 32) {
+    throw new Error(`FHE handle expected 32 bytes, received ${bytes.length}`);
+  }
+  return hexlify(bytes) as `0x${string}`;
+};

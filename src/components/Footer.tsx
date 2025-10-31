@@ -1,5 +1,3 @@
-import { Shield } from "lucide-react";
-
 const Footer = () => {
   return (
     <footer className="border-t border-border bg-card">
@@ -7,8 +5,8 @@ const Footer = () => {
         <div className="grid gap-8 md:grid-cols-4">
           <div className="md:col-span-2">
             <div className="mb-4 flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow">
-                <Shield className="h-4 w-4 text-white" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary-glow shadow-md">
+                <img src="/logo.svg" alt="PayrollChain" className="h-6 w-6" />
               </div>
               <span className="text-lg font-bold text-card-foreground">IdentityChain</span>
             </div>

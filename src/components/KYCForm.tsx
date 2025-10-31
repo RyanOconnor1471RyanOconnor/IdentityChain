@@ -5,14 +5,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Shield, CheckCircle2, Loader2 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { toast } from "sonner";
 import { useAccount, useChainId, useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 import { encryptKYC, initializeFHE } from "@/lib/fhe";
 import { sepolia } from "wagmi/chains";
-import PrivacyKYCABI from "@/contracts/PrivacyKYC.json";
+import PrivacyKYCJSON from "@/contracts/PrivacyKYC.json";
 
 // Contract address - update this after deployment
-const KYC_CONTRACT_ADDRESS = "0x6405353473125DeAf0121CaE302B933B6784451E";
+const KYC_CONTRACT_ADDRESS = "0x53834c87D409CAb6E0668e297d8bfF67C1d259DF";
+const PrivacyKYCABI = PrivacyKYCJSON.abi;
 
 // Nationality codes mapping
 const NATIONALITIES: Record<string, number> = {
@@ -37,7 +38,6 @@ const DOC_TYPES: Record<string, number> = {
 };
 
 const KYCForm = () => {
-  const { toast } = useToast();
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,40 +68,47 @@ const KYCForm = () => {
         })
         .catch((error) => {
           console.error("[KYC] ❌ FHE initialization failed:", error);
-          toast({
-            title: "FHE Initialization Failed",
+          toast.error("FHE Initialization Failed", {
             description: error.message || "Failed to initialize FHE SDK",
-            variant: "destructive",
           });
         });
     }
-  }, [isConnected, fheInitialized, chainId, toast]);
+  }, [isConnected, fheInitialized, chainId]);
 
   // Watch for transaction confirmation
   useEffect(() => {
-    if (isConfirmed) {
+    if (isConfirmed && hash) {
       console.log("[KYC] ✅ Transaction confirmed:", hash);
       setIsSubmitting(false);
       setIsVerified(true);
-      toast({
-        title: "KYC Submitted Successfully",
-        description: "Your encrypted information has been submitted to the blockchain.",
-      });
+      toast.success(
+        <div className="flex flex-col gap-1">
+          <p className="font-semibold">🎉 KYC Submitted Successfully!</p>
+          <p className="text-sm text-muted-foreground">Your encrypted information has been submitted to the blockchain.</p>
+          <a
+            href={`https://sepolia.etherscan.io/tx/${hash}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-blue-500 hover:text-blue-600 underline mt-1"
+          >
+            View on Etherscan →
+          </a>
+        </div>,
+        { duration: 5000 }
+      );
     }
-  }, [isConfirmed, hash, toast]);
+  }, [isConfirmed, hash]);
 
   // Watch for write errors
   useEffect(() => {
     if (writeError) {
       console.error("[KYC] ❌ Transaction error:", writeError);
       setIsSubmitting(false);
-      toast({
-        title: "Transaction Failed",
+      toast.error("Transaction Failed", {
         description: writeError.message || "Failed to submit transaction",
-        variant: "destructive",
       });
     }
-  }, [writeError, toast]);
+  }, [writeError]);
 
   const calculateAge = (birthDate: string): number => {
     const today = new Date();
@@ -118,39 +125,31 @@ const KYCForm = () => {
     e.preventDefault();
 
     if (!isConnected || !address) {
-      toast({
-        title: "Wallet Not Connected",
+      toast.error("Wallet Not Connected", {
         description: "Please connect your wallet to submit KYC information.",
-        variant: "destructive",
       });
       return;
     }
 
     // Check if on Sepolia network
     if (chainId !== sepolia.id) {
-      toast({
-        title: "Wrong Network",
+      toast.error("Wrong Network", {
         description: `Please switch to Sepolia testnet (Chain ID: ${sepolia.id})`,
-        variant: "destructive",
       });
       return;
     }
 
     if (KYC_CONTRACT_ADDRESS === "0x0000000000000000000000000000000000000000") {
-      toast({
-        title: "Contract Not Deployed",
+      toast.error("Contract Not Deployed", {
         description: "Please deploy the PrivacyKYC contract first and update the contract address.",
-        variant: "destructive",
       });
       return;
     }
 
     // Check if FHE is initialized
     if (!fheInitialized) {
-      toast({
-        title: "FHE Not Ready",
+      toast.error("FHE Not Ready", {
         description: "Please wait for FHE SDK to initialize...",
-        variant: "destructive",
       });
       return;
     }
@@ -163,10 +162,8 @@ const KYCForm = () => {
       const age = calculateAge(formData.dateOfBirth);
 
       if (age < 18) {
-        toast({
-          title: "Age Requirement",
+        toast.error("Age Requirement", {
           description: "You must be at least 18 years old to submit KYC.",
-          variant: "destructive",
         });
         setIsSubmitting(false);
         return;
@@ -182,10 +179,7 @@ const KYCForm = () => {
         documentType: docTypeCode,
       });
 
-      toast({
-        title: "Encrypting Data",
-        description: "Encrypting your KYC information using FHE...",
-      });
+      toast.loading("Encrypting your KYC information using FHE...", { id: "kyc-encryption" });
 
       // Add timeout to encryption
       const encryptionPromise = encryptKYC(
@@ -209,10 +203,7 @@ const KYCForm = () => {
         encrypted
       });
 
-      toast({
-        title: "Encryption Complete",
-        description: "Submitting to blockchain...",
-      });
+      toast.success("Encryption complete! Submitting to blockchain...", { id: "kyc-encryption" });
 
       console.log("[KYC] Calling submitKYC contract function...");
 
@@ -233,10 +224,8 @@ const KYCForm = () => {
 
     } catch (error: any) {
       console.error("KYC submission error:", error);
-      toast({
-        title: "Submission Failed",
+      toast.error("Submission Failed", {
         description: error.message || "Failed to encrypt and submit KYC data",
-        variant: "destructive",
       });
       setIsSubmitting(false);
     }

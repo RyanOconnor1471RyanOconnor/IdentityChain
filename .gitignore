@@ -35,3 +35,4 @@ typechain-types
 # Build files
 build
 out
+.vercel
